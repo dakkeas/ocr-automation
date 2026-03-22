@@ -15,15 +15,15 @@ load_dotenv()
 # TENANT_ID: Your unique ABBYY Tenant identifier (e.g. your workspace space).
 # SKILL_ID: The unique identifier for the specific Machine Learning model or "Skill" you want to use.
 # BASE_URL: The host URL for the API. In this case, 'vantage-au.abbyy.com' for the Australia server.
-# FILE_PATH: The local path to the document you wish to upload and process.
+# INPUT_DIR: The local directory containing documents you wish to upload and process.
 
 TENANT_ID = os.environ.get("ABBYY_TENANT_ID")
 SKILL_ID = "4cf33492-adb5-43e5-b8c7-0a9a146886da"
 BASE_URL = "https://vantage-au.abbyy.com/api/publicapi/v1"
-FILE_PATH = "test_data.pdf"
+INPUT_DIR = "files"
 
 
-def process_document(access_token):
+def process_document(access_token, file_path):
     """
     Main pipeline function that orchestrates the ABBYY OCR lifecycle.
     
@@ -77,7 +77,7 @@ def process_document(access_token):
     # LAYER 2: UPLOADING THE DOCUMENT
     # =========================================================================================
     # Once the transaction exists, we upload the actual file logic bytes to it.
-    print(f"2. Uploading {FILE_PATH}...")
+    print(f"2. Uploading {file_path}...")
     upload_url = f"{BASE_URL}/transactions/{transaction_id}/files"
     
     # NOTE: When sending `multipart/form-data` using requests.post(files=...), 
@@ -88,10 +88,10 @@ def process_document(access_token):
         'Authorization': f'Bearer {access_token}'
     }
     
-    with open(FILE_PATH, "rb") as f:
+    with open(file_path, "rb") as f:
         # Structure the payload as a file tuple: (filename, file_object, mime_type)
         files = {
-            "file": (os.path.basename(FILE_PATH), f, "application/pdf")
+            "file": (os.path.basename(file_path), f, "application/pdf")
         }
         # Send the binary payload.
         upload_response = requests.post(upload_url, headers=upload_headers, files=files)
@@ -223,5 +223,29 @@ if __name__ == "__main__":
     # Orchestrator block: acquire the token using credentials, then run the pipeline.
     token = get_access_token()
     if token:
-        process_document(token)
+        # Ensure the input directory exists
+        if not os.path.exists(INPUT_DIR):
+            os.makedirs(INPUT_DIR)
+            print(f"Created input directory '{INPUT_DIR}'. Please place your PDF files there.")
+        else:
+            # Loop through all files in the INPUT_DIR and process the .pdf files
+            pdf_files = [f for f in os.listdir(INPUT_DIR) if f.lower().endswith(".pdf")]
+            
+            if not pdf_files:
+                print(f"No PDF files found in the '{INPUT_DIR}' directory.")
+            else:
+                print(f"Found {len(pdf_files)} PDF files to process in '{INPUT_DIR}'.")
+                for index, filename in enumerate(pdf_files, start=1):
+                    file_path = os.path.join(INPUT_DIR, filename)
+                    print(f"\n=======================================================")
+                    print(f"Processing File [{index}/{len(pdf_files)}]: {filename}")
+                    print(f"=======================================================")
+                    try:
+                        process_document(token, file_path)
+                    except Exception as e:
+                        print(f"An error occurred while processing {filename}: {e}")
+                    
+                    # Optional: Add a small delay between documents to avoid overwhelming the API
+                    time.sleep(2)
+
 
