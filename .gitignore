@@ -1,0 +1,10 @@
+# Secret credentials
+.env
+abbyy_config.json
+
+# Python artifacts
+__pycache__/
+venv/
+.pytest_cache/
+output/
+# test_data.pdf
